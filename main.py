@@ -1,4 +1,3 @@
-
 from flask import Flask, request
 import openai
 import requests
@@ -8,6 +7,7 @@ app = Flask(__name__)
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+openai.api_key = OPENAI_API_KEY
 
 def load_documents():
     folder = "docs"
@@ -43,32 +43,20 @@ def telegram_webhook():
         return "ok"
 
     try:
-        openai.api_key = OPENAI_API_KEY
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": f"{system_prompt}\n\n{documents_context}"},
                 {"role": "user", "content": text}
             ]
         )
-        reply = response.choices[0].message.content
+        reply = response.choices[0].message.content.strip()
     except Exception as e:
-        reply = f"Произошла ошибка при обращении к OpenAI: {e}"
+        reply = f"Произошла ошибка при обращении к OpenAI:\n\n{e}"
         print("❌ Ошибка GPT:", e)
 
     send_telegram_message(chat_id, reply)
     return "ok"
 
 def send_telegram_message(chat_id, text):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text}
-    r = requests.post(url, json=payload)
-    print("📤 Ответ отправлен:", r.status_code, r.text)
-
-@app.route("/", methods=["GET"])
-def home():
-    return "Avalon GPT bot is running."
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    url = f"https://api.telegram.org/b
