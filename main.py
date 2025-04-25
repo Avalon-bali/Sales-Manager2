@@ -59,4 +59,15 @@ def telegram_webhook():
     return "ok"
 
 def send_telegram_message(chat_id, text):
-    url = f"https://api.telegram.org/b
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    r = requests.post(url, json=payload)
+    print("📤 Ответ отправлен:", r.status_code, r.text)
+
+@app.route("/", methods=["GET"])
+def home():
+    return "Avalon GPT bot is running."
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
