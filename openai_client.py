@@ -8,20 +8,20 @@ def ask_openai(user_input: str) -> str:
     with open("system_prompt.txt", "r", encoding="utf-8") as f:
         system_prompt = f.read()
 
-    # Загружаем весь контекст из docs/*.txt
+    # Загружаем все файлы из docs/
     context = ""
     docs_path = "docs"
     for filename in os.listdir(docs_path):
         if filename.endswith(".txt"):
             with open(os.path.join(docs_path, filename), "r", encoding="utf-8") as file:
                 content = file.read()
-                context += f"\n[{filename.replace('.txt', '').upper()}]\n{content}"
+                context += f"\n\n[{filename.replace('.txt', '').upper()}]\n{content}"
 
-    # Отправляем в OpenAI
+    # Отправляем в GPT
     response = openai.chat.completions.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": system_prompt + "\n\n" + context},
+            {"role": "system", "content": system_prompt + context},
             {"role": "user", "content": user_input}
         ]
     )
