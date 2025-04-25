@@ -1,4 +1,3 @@
-
 from flask import Flask, request
 import openai
 import requests
@@ -9,6 +8,9 @@ app = Flask(__name__)
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
+
+# Память на сессию: user_id -> list of messages
+sessions = {}
 
 def load_documents():
     folder = "docs"
@@ -33,6 +35,7 @@ def telegram_webhook():
 
     message = data.get("message", {})
     chat_id = message.get("chat", {}).get("id")
+    user_id = message.get("from", {}).get("id")
     text = message.get("text", "")
 
     if not chat_id:
@@ -40,21 +43,34 @@ def telegram_webhook():
 
     if text.strip() == "/start":
         welcome = "👋 Привет! Я — AI ассистент Avalon.\nСпросите про OM, BUDDHA, TAO или про инвестиции на Бали."
+        sessions[user_id] = []  # очистка истории
         send_telegram_message(chat_id, welcome)
         return "ok"
+
+    # Подготовка истории
+    history = sessions.get(user_id, [])
+
+    messages = [
+        {"role": "system", "content": f"{system_prompt}\n\n{documents_context}"}
+    ] + history[-6:] + [  # последние 6 сообщений в истории
+        {"role": "user", "content": text}
+    ]
 
     try:
         response = openai.chat.completions.create(
             model="gpt-4o",
-            messages=[
-                {"role": "system", "content": f"{system_prompt}\n\n{documents_context}"},
-                {"role": "user", "content": text}
-            ]
+            messages=messages
         )
         reply = response.choices[0].message.content.strip()
     except Exception as e:
         reply = f"Произошла ошибка при обращении к OpenAI:\n\n{e}"
         print("❌ Ошибка GPT:", e)
+
+    # Обновляем память пользователя
+    sessions[user_id] = (history + [
+        {"role": "user", "content": text},
+        {"role": "assistant", "content": reply}
+    ])[-10:]  # обрезаем до последних 10 сообщений
 
     send_telegram_message(chat_id, reply)
     return "ok"
@@ -67,7 +83,7 @@ def send_telegram_message(chat_id, text):
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Avalon GPT bot is running."
+    return "Avalon GPT bot is running with memory."
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
